@@ -1,0 +1,219 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  password      String
+  avatar        String?
+  bio           String?
+  role          UserRole @default(USER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime?
+  isEmailVerified Boolean  @default(false)
+  
+  // 关系
+  posts         Post[]
+  comments      Comment[]
+  media         Media[]
+  
+  @@map("user_posts", "user_comments", "user_media", "user_posts_author")
+  @@index([email])
+}
+
+// 文章表
+model Post {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  excerpt       String?
+  content       String   @db.Text
+  contentHtml  String   @db.Text
+  coverImage    String?
+  status        PostStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  publishedBy   DateTime?
+  
+  // 关系
+  author        User       @relation(fields: [authorId], references: [id])
+  authorId      String
+  
+  category      Category?  @relation(fields: [categoryId], references: [id])
+  categoryId   String?
+  
+  tags         Tag[]     @relation("post_tags")
+  
+  comments      Comment[]
+  media         Media[]
+  
+  @@map("posts_author", "posts_category", "post_tags", "post_comments", "post_media")
+  @@index([slug])
+  @@index([authorId])
+}
+
+// 分类表
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // 关系
+  posts       Post[]
+  
+  @@map("category_posts")
+  @@index([slug])
+}
+
+// 标签表
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关系
+  posts     Post[]
+  
+  @@map("tag_posts")
+  @@index([slug])
+}
+
+// 评论表
+model Comment {
+  id          String   @id @default(cuid())
+  content     String
+  status      CommentStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // 关系
+  author      User       @relation(fields: [authorId], references: [id])
+  authorId   String
+  
+  post        Post?      @relation(fields: [postId], references: [id])
+  postId     String?
+  
+  parent      Comment?  @relation("comment_replies", fields: [parentId], references: [id])
+  parentId    String?
+  
+  @@map("comments_author", "comments_post", "comments_replies")
+  @@index([postId])
+}
+
+// 媒体表
+model Media {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  type        MediaType
+  size        Int
+  mimeType   String?
+  width       Int?
+  height      Int?
+  alt         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // 关系
+  author      User       @relation(fields: [authorId], references: [id])
+  authorId   String
+  
+  post        Post?      @relation(fields: [postId], references: [id])
+  postId     String?
+  
+  @@map("media_author", "media_post")
+  @@index([url])
+}
+
+// 设置表
+model Settings {
+  id        String   @id @default(cuid())
+  siteName  String   @unique
+  siteTitle String
+  siteDesc  String?
+  siteUrl   String   @unique
+  logoUrl   String?
+  favicon  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("settings_site_name")
+}
+
+// 文件上传记录
+model FileUpload {
+  id          String   @id @default(cuid())
+  originalName String
+  storedName  String
+  url         String
+  type        String
+  size        Int
+  status      UploadStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  
+  @@map("file_uploads_original_name")
+}
+
+// 枚举类型
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SPAM
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  OTHER
+}
+
+enum UploadStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
